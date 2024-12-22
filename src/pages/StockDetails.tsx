@@ -33,7 +33,7 @@ const StockDetails: FC = () => {
     return (
         <Layout>
             <h2 className="text-3xl font-bold mb-6 text-amber-300">{symbol} Stock Details</h2>
-            <div id="tradingview_widget" ref={containerRef} className="h-[600px]" />
+            <div id="tradingview_widget" ref={containerRef} className="h-[800px]" />
         </Layout>
     )
 }
