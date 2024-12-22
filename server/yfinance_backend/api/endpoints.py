@@ -1,6 +1,7 @@
+from typing import List
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
-from .models import StockData
+from .models import StockData, StockResponse
 from stock_services.stock_services import (
     get_realtime_data,
     get_top_profitable_stocks,
@@ -33,35 +34,98 @@ marketnames = [
     "SBICARD.NS", "BERGEPAINT.NS"
 ]
 
-@router.get("/realtime/{symbol}", response_model=StockData)
+from fastapi import APIRouter, HTTPException
+from .models import StockResponse, StockDetails
+from stock_services.stock_services import get_realtime_data
+
+router = APIRouter()
+
+@router.get("/realtime/{symbol}", response_model=StockResponse)
 async def get_stock_realtime(symbol: str):
     try:
+        # Fetch real-time stock data
         data = get_realtime_data([symbol])
-        if data and symbol in data:
-            return StockData(
-                symbol=symbol,
-                price=float(data[symbol]['price']),
-                change=float(data[symbol]['change']),
-                volume=int(data[symbol]['volume']),
-                timestamp=data[symbol]['timestamp']
+        print("------HERE IS THE DATA------", data)
+
+        # Check if the data is present for the given symbol
+        if symbol in data:
+            stock_data = data[symbol]
+            
+            # Create StockDetails object using the fetched data
+            stock_details = StockDetails(
+                open_price=stock_data['open_price'],
+                close_price=stock_data['close_price'],
+                percent_change=stock_data['percent_change'],
+                volume=stock_data['volume'],
+                high=stock_data['high'],
+                low=stock_data['low']
             )
+            
+            # Return the StockResponse with proper details
+            return StockResponse(
+                symbol=symbol,
+                details=stock_details.model_dump()  
+            )
+        
         raise HTTPException(status_code=404, detail="Stock data not found")
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/realtime/multiple/{symbols}")
+@router.get("/realtime/multiple/{symbols}", response_model=List[StockResponse])
 async def get_multiple_realtime(symbols: str):
+    """
+    symbols will be comma seperated and without space like ITC.NS,TITAN.NS
+
+    """
     try:
+        # Split the symbols from the incoming request
         symbol_list = symbols.split(',')
+        
+        # Get real-time data for the symbols
         data = get_realtime_data(symbol_list)
-        return JSONResponse(content=data)
+        
+        # Validate and return the response in the correct format
+        stock_responses = []
+        for symbol in symbol_list:
+            if symbol in data:
+                stock_data = data[symbol]
+                
+                # Create StockDetails object using the fetched data
+                stock_details = StockDetails(
+                    open_price=stock_data['open_price'],
+                    close_price=stock_data['close_price'],
+                    percent_change=stock_data['percent_change'],
+                    volume=stock_data['volume'],
+                    high=stock_data['high'],
+                    low=stock_data['low']
+                )
+                
+                # Create and append StockResponse object
+                stock_responses.append(
+                    StockResponse(
+                        symbol=symbol,
+                        details=stock_details.dict()  # Convert StockDetails to dictionary for the response
+                    )
+                )
+            else:
+                # If data for a symbol is not found, append an error response
+                stock_responses.append(
+                    StockResponse(
+                        symbol=symbol,
+                        details={}
+                    )
+                )
+        
+        return stock_responses
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get('/top-stocks')
 def top_stocks():
     """
-    API endpoint to return the top 10 most profitable stocks in JSON format.
+    API endpoint to return the top 10 most profitable stocks in NIFTY 100 in JSON format.
     """
     top_stocks_data = get_top_profitable_stocks(marketnames)
     return JSONResponse(content=top_stocks_data)
@@ -69,7 +133,7 @@ def top_stocks():
 @router.get('/highest-volume-stocks')
 def highest_volume_stocks():
     """
-    API endpoint to return the top 10 stocks with highest trading volume in JSON format.
+    API endpoint to return the top 10 stocks in NIFTY 100 with highest trading volume in JSON format.
     """
     highest_volume_data = get_highest_volume_stocks(marketnames)
     return JSONResponse(content=highest_volume_data)

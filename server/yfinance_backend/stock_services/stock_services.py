@@ -12,14 +12,28 @@ def get_realtime_data(symbols: list):
         # Get current data
         data = {}
         for symbol, ticker in tickers.items():
-            current_data = ticker.history(period='1d', interval='1m').tail(1)
-            if not current_data.empty:
-                # Convert numpy types to Python native types
+            current_data = ticker.history(period='1d', interval='1d').tail(1)
+            if not current_data.empty and not current_data.empty:
+                open_price = float(current_data['Open'])
+                close_price = float(current_data['Close'].iloc[0])
+                high = float(current_data['High'])
+                low = float(current_data['Low'])
+                volume = int(current_data['Volume'].iloc[0])
+                previous_close = ticker.info.get('previousClose', 0)
+                
+                # Calculate percent change
+                percent_change = ((close_price - previous_close) / previous_close * 100) if previous_close else 0
+                
+                # Add data to response
                 data[symbol] = {
-                    'price': float(current_data['Close'].iloc[0]),
-                    'volume': int(current_data['Volume'].iloc[0]),
-                    'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                    'change': float(current_data['Close'].iloc[0] - ticker.info.get('previousClose', 0)),
+                    "symbol": symbol,
+                    "open_price": open_price,
+                    "close_price": close_price,
+                    "percent_change": percent_change,
+                    "volume": volume,
+                    "high": high,
+                    "low": low,
+                    "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 }
         
         return data
